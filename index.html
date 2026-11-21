@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>가위바위보 룰렛</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: clamp(0.85rem, 4vw, 2rem);
+      background: #edf4f1;
+      color: #142a27;
+      font-family: system-ui, sans-serif;
+    }
+
+    main {
+      width: min(100%, 42rem);
+      padding: clamp(1rem, 4vw, 2.25rem);
+      border: 1px solid #c7d8d2;
+      border-radius: 1.5rem;
+      background: #fff;
+      box-shadow: 0 0.9rem 2.8rem #142a271a;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.5rem, 5vw, 2.5rem);
+    }
+
+    #result {
+      margin: 0.5rem 0 1.4rem;
+      color: #104d41;
+      font-size: clamp(2.1rem, 8vw, 4rem);
+      font-weight: 850;
+      line-height: 1.15;
+      overflow-wrap: anywhere;
+    }
+
+    .roulette {
+      position: relative;
+      width: min(100%, 24rem);
+      margin: 0 auto 1.5rem;
+      padding-top: 0.65rem;
+    }
+
+    .pointer {
+      position: absolute;
+      z-index: 1;
+      top: 0;
+      left: 50%;
+      width: clamp(2.1rem, 8vw, 3.1rem);
+      height: clamp(2rem, 7vw, 2.8rem);
+      transform: translateX(-50%);
+      background: #142a27;
+      clip-path: polygon(0 0, 100% 0, 50% 100%);
+    }
+
+    .wheel {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      border: 0.35rem solid #142a27;
+      border-radius: 50%;
+      background: conic-gradient(from -60deg,
+        #ffd66f 0deg 120deg,
+        #a5e1cc 120deg 240deg,
+        #b5d3ff 240deg 360deg);
+    }
+
+    .wheel::after {
+      content: "";
+      position: absolute;
+      inset: 50% auto auto 50%;
+      width: 9%;
+      aspect-ratio: 1;
+      transform: translate(-50%, -50%);
+      border: 0.2rem solid #fff;
+      border-radius: 50%;
+      background: #142a27;
+    }
+
+    .slice {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      font-size: clamp(1.45rem, 6vw, 2.65rem);
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    .scissors { top: 24%; left: 50%; }
+    .rock { top: 63%; left: 73%; }
+    .paper { top: 63%; left: 27%; }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    button {
+      min-height: 4.5rem;
+      padding: 0.55rem 0.65rem;
+      border: 3px solid #155d4d;
+      border-radius: 0.85rem;
+      background: #155d4d;
+      color: #fff;
+      font: inherit;
+      font-size: clamp(1.5rem, 5vw, 2.1rem);
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .secondary { background: #fff; color: #104d41; }
+    button:focus-visible { outline: 3px solid #142a27; outline-offset: 4px; }
+    button[aria-disabled="true"] {
+      border-color: #71857e;
+      background: #edf2f0;
+      color: #405950;
+      cursor: default;
+    }
+
+    @media (max-width: 30rem) {
+      .actions { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>가위바위보 룰렛</h1>
+    <p id="result" role="status" aria-atomic="true">돌려 보세요!</p>
+
+    <div class="roulette" aria-hidden="true">
+      <div class="pointer"></div>
+      <div class="wheel" id="wheel">
+        <span class="slice scissors">가위</span>
+        <span class="slice rock">바위</span>
+        <span class="slice paper">보</span>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="spin" type="button">돌리기</button>
+      <button id="spin-again" class="secondary" type="button" aria-disabled="true">다시 돌리기</button>
+    </div>
+  </main>
+
+  <script>
+    const wheel = document.querySelector("#wheel");
+    const result = document.querySelector("#result");
+    const spinButton = document.querySelector("#spin");
+    const againButton = document.querySelector("#spin-again");
+    const choices = [...wheel.querySelectorAll(".slice")];
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const fullTurn = 360;
+    const sliceAngle = fullTurn / choices.length;
+    let angle = 0;
+
+    async function spin(event) {
+      if (event.currentTarget.getAttribute("aria-disabled") === "true") return;
+
+      spinButton.setAttribute("aria-disabled", "true");
+      againButton.setAttribute("aria-disabled", "true");
+      result.textContent = "돌아가는 중…";
+
+      const index = Math.floor(Math.random() * choices.length);
+      // 화살표는 12시 방향에 고정되어 있습니다.
+      const targetAngle = (fullTurn - index * sliceAngle) % fullTurn;
+      const offset = (targetAngle - angle + fullTurn) % fullTurn;
+      const endAngle = angle + fullTurn * 5 + offset;
+
+      try {
+        if (!reducedMotion.matches && typeof wheel.animate === "function") {
+          const animation = wheel.animate(
+            [
+              { transform: "rotate(" + angle + "deg)" },
+              { transform: "rotate(" + endAngle + "deg)" }
+            ],
+            { duration: 3200, easing: "cubic-bezier(0.12, 0.65, 0.15, 1)" }
+          );
+          await animation.finished;
+        }
+      } finally {
+        angle = targetAngle;
+        wheel.style.transform = "rotate(" + angle + "deg)";
+        result.textContent = choices[index].textContent;
+        spinButton.removeAttribute("aria-disabled");
+        againButton.removeAttribute("aria-disabled");
+      }
+    }
+
+    spinButton.addEventListener("click", spin);
+    againButton.addEventListener("click", spin);
+  </script>
+</body>
+</html>
